@@ -80,7 +80,7 @@ public class Day05
                     rulesList.Where(x => page.Contains(x.value)).Count(x => x.key == n),
                     rulesList.Where(x => page.Contains(x.key)).Count(x => x.value == n),
                     n))
-                .Where(x => x.Item1 == x.Item2).OrderDescending().First())
+                .Single(x => x.Item1 == x.Item2))
             .Select(x => x.n)
             .Sum();
 
