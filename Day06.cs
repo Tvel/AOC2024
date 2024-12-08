@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace AOC2024;
+﻿namespace AOC2024;
 
 public class Day06
 {
@@ -60,7 +58,8 @@ public class Day06
 
     [Theory]
     [InlineData(Inputs.Sample, 6)]
-    public void Part2Wrong(string inputString, long expected)
+    [InlineData(Inputs.Input, 5409)]
+    public void Part2Wrong2(string inputString, long expected)
     {
         char[][] map = inputString.Split(Environment.NewLine).Select(x => x.ToCharArray()).ToArray();
         (int x, int y)[] directions =
@@ -78,12 +77,13 @@ public class Day06
             int y = row.AsSpan().IndexOf('^');
             if (y is -1) continue;
             guard = (x, y, 0);
-            row[y] = '.';
+            row[y] = 'X';
             break;
         }
+        (int x, int y, int directionIndex) startGuard = guard;
 
+        List<Func<bool>> tests = [];
         bool walk = true;
-        List<(int x, int y, int directionIndex)> turningPoints = [];
         while (walk)
         {
             //check if we can walk forward
@@ -99,82 +99,61 @@ public class Day06
             if (map[newX][newY] is '#')
             {
                 guard.directionIndex = (guard.directionIndex + 1) % directions.Length;
-                turningPoints.Add(guard);
             }
             else
             {
-                map[newX][newY] = 'X';
+                //add to run
+                var g = (guard.x, guard.y, guard.directionIndex);
+                tests.Add(() => TestLoop(map, g, directions, (newX, newY)));
+
                 guard = (newX, newY, guard.directionIndex);
             }
         }
 
-        //check if we can loop
-        int result = 0;
-        for (int pointIndex = 2; pointIndex < turningPoints.Count; pointIndex++)
-        {
-            var first = turningPoints[pointIndex - 2];
-            var third = turningPoints[pointIndex];
+        int loopCount = 0;
+        Parallel.ForEach(tests, (func => { if(func()) Interlocked.Increment(ref loopCount); }));
 
-            (int x, int y) fourth = third.directionIndex switch
-            {
-                0 or 2 => (first.x, third.y),
-                1 or 3 => (third.x, first.y),
-                _ => throw new UnreachableException("on no!")
-            };
-
-            (int x, int y)[] toCheck1;
-            {
-                var a = Math.Min(fourth.x, first.x) - Math.Max(fourth.x, first.x);
-                var ax = Enumerable.Range(a, Math.Clamp(Math.Abs(a) - 1, 0, 10)).ToArray();
-                var b = Math.Min(fourth.y, first.y) - Math.Max(fourth.y, first.y);
-                var by = Enumerable.Range(b, Math.Clamp(Math.Abs(b) - 1, 0, 10)).ToArray();
-                if (ax.Length == 0) ax = Enumerable.Repeat(0, by.Length).ToArray();
-                if (by.Length == 0) by = Enumerable.Repeat(0, ax.Length).ToArray();
-                toCheck1 = ax.Zip(by).ToArray();
-            }
-
-            (int x, int y)[] toCheck2;
-            {
-                var aa = Math.Min(fourth.x, third.x) - Math.Max(fourth.x, third.x);
-                var aax = Enumerable.Range(aa, Math.Clamp(Math.Abs(aa) - 1, 0, 10)).ToArray();
-                var ab = Math.Min(fourth.y, third.y) - Math.Max(fourth.y, third.y);
-                var aby = Enumerable.Range(ab, Math.Clamp(Math.Abs(ab) - 1, 0, 10)).ToArray();
-                if (aax.Length == 0) aax = Enumerable.Repeat(0, aby.Length).ToArray();
-                if (aby.Length == 0) aby = Enumerable.Repeat(0, aax.Length).ToArray();
-                toCheck2 = aax.Zip(aby).ToArray();
-            }
-
-            bool ok1 = true;
-            (int x, int y) start1 = (Math.Max(fourth.x, first.x), Math.Max(fourth.y, first.y));
-            foreach (var (mx, my) in toCheck1)
-            {
-                int x = start1.x + mx;
-                int y = start1.y + my;
-                if (map[x][y] is '#')
-                {
-                    ok1 = false;
-                    break;
-                }
-            }
-
-            bool ok2 = true;
-            (int x, int y) start2 = (Math.Max(fourth.x, third.x), Math.Max(fourth.y, third.y));
-            foreach (var (mx, my) in toCheck2)
-            {
-                int x = start2.x + mx;
-                int y = start2.y + my;
-                if (map[x][y] is '#')
-                {
-                    ok1 = false;
-                    break;
-                }
-            }
-
-            if (ok1 && ok2) result++;
-        }
-
-        Assert.Equal(expected, result);
+        Assert.Equal(expected, loopCount);
     }
+
+    bool TestLoop(char[][] map, (int x, int y, int directionIndex) startGuard, (int x, int y)[] directions, (int x, int y) obstacle)
+    {
+        var guard = startGuard;
+        int count = 0;
+        bool walk = true;
+        bool loop = false;
+        while (walk)
+        {
+            //check if we can walk forward
+            int newX = guard.x + directions[guard.directionIndex].x;
+            int newY = guard.y + directions[guard.directionIndex].y;
+            if (newX < 0 || newY < 0 || newX >= map.Length || newY >= map[0].Length)
+            {
+                walk = false;
+                break;
+            }
+
+            //check if we have to turn right
+            if (map[newX][newY] is '#' || (newX, newY) == obstacle)
+            {
+                guard.directionIndex = (guard.directionIndex + 1) % directions.Length;
+            }
+            else
+            {
+                guard = (newX, newY, guard.directionIndex);
+                if (startGuard == guard)
+                {
+                    walk = false;
+                    loop = true;
+                }
+
+                count++;
+                if (count > 100000) return true;
+            }
+        }
+        return loop;
+    }
+
 }
 
 file class Inputs
