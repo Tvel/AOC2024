@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-using Xunit.Abstractions;
+﻿using Xunit.Abstractions;
 
 namespace AOC2024;
 
@@ -29,12 +23,12 @@ public class Day11
         for (int i = 1; i < 26; i++)
         {
             List<string> blink = [];
-            foreach (string stone in blinks[i-1])
+            foreach (string stone in blinks[i - 1])
             {
-                if(stone is "0") blink.Add("1");
+                if (stone is "0") blink.Add("1");
                 else if (stone.Length % 2 == 0)
                 {
-                    
+
                     string firstHalf = ulong.Parse(stone[..(stone.Length / 2)]).ToString();
                     string secondHalf = ulong.Parse(stone[(stone.Length / 2)..]).ToString();
                     blink.Add(firstHalf);
@@ -53,41 +47,52 @@ public class Day11
     }
 
     [Theory]
-    [InlineData(Inputs.Sample, 0)]
-    [InlineData(Inputs.Input, 0)]
+    [InlineData(Inputs.Input, 224869647102559)]
     public void Part2(string inputString, ulong expected)
     {
-        string[] initialStones = inputString.Split(' ');
+        int blinkTimes = 75;
+        ulong[] initialStones = inputString.Split(' ').Select(x => ulong.Parse(x)).ToArray();
 
-        //todo: cache
+        Dictionary<(ulong stone, int blink), ulong> cache = new();
         ulong count = 0;
-        foreach (string istone in initialStones)
+        foreach (ulong stone in initialStones)
         {
-            List<string> blink = [istone];
-            for (int i = 1; i < 76; i++)
+            count += Process(stone, 0);
+        }
+
+        ulong Process(ulong stone, int blink)
+        {
+            if (blink == blinkTimes)
             {
-                List<string> nextblink = [];
-                foreach (string stone in blink)
-                {
-                    if (stone is "0") nextblink.Add("1");
-                    else if (stone.Length % 2 == 0)
-                    {
+                cache[(stone, blink)] = 1;
+                return 1;
+            }
+            if (cache.ContainsKey((stone, blink))) return cache[(stone, blink)];
 
-                        string firstHalf = ulong.Parse(stone[..(stone.Length / 2)]).ToString();
-                        string secondHalf = ulong.Parse(stone[(stone.Length / 2)..]).ToString();
-                        nextblink.Add(firstHalf);
-                        nextblink.Add(secondHalf);
-                    }
-                    else
-                    {
-                        nextblink.Add((ulong.Parse(stone) * 2024UL).ToString());
-                    }
-                }
-
-                blink = nextblink;
+            if (stone is 0UL)
+            {
+                ulong ret = Process(1, blink + 1);
+                cache[(1, blink + 1)] = ret;
+                return ret;
             }
 
-            count += (ulong)blink.Count;
+            string stoneStr = stone.ToString();
+            if (stoneStr.Length % 2 == 0)
+            {
+                ulong firstHalf = ulong.Parse(stoneStr[..(stoneStr.Length / 2)]);
+                ulong secondHalf = ulong.Parse(stoneStr[(stoneStr.Length / 2)..]);
+                ulong ret1 = Process(firstHalf, blink + 1);
+                ulong ret2 = Process(secondHalf, blink + 1);
+                cache[(firstHalf, blink + 1)] = ret1;
+                cache[(secondHalf, blink + 1)] = ret2;
+                return ret1 + ret2;
+            }
+
+            {
+                ulong ret = Process(stone * 2024UL, blink + 1);
+                cache[(stone * 2024UL, blink + 1)] = ret;
+                return ret;
+            }
         }
 
         Assert.Equal(expected, count);
