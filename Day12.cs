@@ -19,7 +19,7 @@ public class Day12
     [Theory]
     [InlineData(Inputs.Sample, 140)]
     [InlineData(Inputs.Sample3, 1930)]
-    [InlineData(Inputs.Input, 0)]
+    [InlineData(Inputs.Input, 1473408)]
     public void Part1(string inputString, long expected)
     {
         char[][] map = inputString.Split(Environment.NewLine).Select(x => x.ToCharArray()).ToArray();
@@ -88,6 +88,133 @@ public class Day12
             return (area, perimeter);
         }
     }
+
+    [Theory]
+    [InlineData(Inputs.Sample, 80)]
+    [InlineData(Inputs.Sample4, 236)]
+    [InlineData(Inputs.Sample2, 436)]
+    [InlineData(Inputs.Input, 886364)]
+    public void Part2(string inputString, long expected)
+    {
+        char[][] map = inputString.Split(Environment.NewLine).Select(x => x.ToCharArray()).ToArray();
+        (int x, int y)[] directions =
+        [
+            (-1, 0), //up
+            (0, 1), //right
+            (1, 0), //down
+            (0, -1), //left
+        ];
+        HashSet<Coordinate> visited = [];
+        List<(char symbol, long area, long sides)> plots = [];
+        while (TryFindUnvisited(out Coordinate startCoordinate))
+        {
+            char symbol = map[startCoordinate.X][startCoordinate.Y];
+            HashSet<Coordinate> topCoords = [];
+            HashSet<Coordinate> bottomCoords = [];
+
+            long area = FindAreaAndSides(symbol, startCoordinate, topCoords, bottomCoords, false, false);
+
+            int sides = GetSides(topCoords) + GetSides(bottomCoords);
+            sides *= 2; // horizontal sides equal vertical so just multiply by 2
+
+            plots.Add((symbol, area, sides));
+        }
+
+        long result = plots.Select(x => x.area * x.sides).Sum();
+
+        Assert.Equal(expected, result);
+
+        return;
+
+        bool TryFindUnvisited(out Coordinate unvisited)
+        {
+            for (int x = 0; x < map.Length; x++)
+            {
+                for (int y = 0; y < map[x].Length; y++)
+                {
+                    if (!visited.Contains((x, y)))
+                    {
+                        unvisited = (x, y);
+                        return true;
+                    }
+                }
+            }
+
+            unvisited = default;
+            return false;
+        }
+
+        long FindAreaAndSides(char symbol, Coordinate coordinate, HashSet<Coordinate> topCoords, HashSet<Coordinate> bottomCoords, bool top, bool bottom)
+        {
+            if (map[coordinate.X][coordinate.Y] != symbol)
+            {
+                if (top)
+                {
+                    topCoords.Add(coordinate);
+                }
+                if (bottom)
+                {
+                    bottomCoords.Add(coordinate);
+                }
+                return 0;
+            }
+            if (visited.Contains(coordinate)) return 0;
+
+            long area = 1;
+            visited.Add(coordinate);
+
+            foreach ((int x, int y) direction in directions)
+            {
+                bool newTop = direction == directions[0];
+                bool newBottom = direction == directions[2];
+
+                Coordinate newCoordinate = (coordinate.X + direction.x, coordinate.Y + direction.y);
+                if (newCoordinate.X < 0 || newCoordinate.X >= map.Length || newCoordinate.Y < 0 || newCoordinate.Y >= map[newCoordinate.X].Length)
+                {
+                    if (newTop)
+                    {
+                        topCoords.Add(newCoordinate);
+                    }
+                    if (newBottom)
+                    {
+                        bottomCoords.Add(newCoordinate);
+                    }
+                    continue;
+                };
+
+                long foundArea = FindAreaAndSides(symbol, newCoordinate, topCoords, bottomCoords, newTop, newBottom);
+                area += foundArea;
+            }
+
+            return area;
+        }
+
+        int GetSides(HashSet<Coordinate> sidesCoordinatesSet)
+        {
+            int count = 1;
+            var sidesCoordinates = sidesCoordinatesSet.OrderBy(x => x.X).ThenBy(x => x.Y).ToArray();
+            Coordinate current = sidesCoordinates[0];
+            for (int i = 1; i < sidesCoordinates.Length; i++)
+            {
+                Coordinate next = sidesCoordinates[i];
+                if (next.X != current.X)
+                {
+                    count++;
+                    current = next;
+                    continue;
+                }
+                if (next.Y != current.Y + 1)
+                {
+                    count++;
+                    current = next;
+                    continue;
+                }
+                current = next;
+            }
+
+            return count;
+        }
+    }
 }
 
 file static class Inputs
@@ -121,6 +248,15 @@ file static class Inputs
         MIIIIIJJEE
         MIIISIJEEE
         MMMISSJEEE
+        """;
+
+    public const string Sample4 =
+        """
+        EEEEE
+        EXXXX
+        EEEEE
+        EXXXX
+        EEEEE
         """;
 
     public const string Input =
